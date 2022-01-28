@@ -245,7 +245,12 @@ def export_to_pick(data, peptide0, peptide1):
 
 def main():
 
-    parser = argparse.ArgumentParser(description="Process some plates.")
+    parser = argparse.ArgumentParser(
+        description="""
+        Processes luminescence plates from a single excel file and outputs a list of "winners". It's important to have the proper order of the sheets in your Excel file. 
+        The order should proceed as plate 1, peptide 1 --> plate 1, peptide 2 --> plate 2, peptdide 1 etc.
+        """
+    )
     parser.add_argument(
         "path", type=str, help="Path to the excel file with sheets for each plate."
     )
@@ -259,6 +264,14 @@ def main():
     )
     parser.add_argument(
         "peptide2", type=str, help="Name of the second peptide.", default="peptide2"
+    )
+    parser.add_argument(
+        "--controls",
+        metavar=str,
+        nargs="+",
+        type=str,
+        help="List of positive control wells.",
+        default=["A1", "A2", "A3", "H10", "H11", "H12"],
     )
 
     args = vars(parser.parse_args())
@@ -275,9 +288,10 @@ def main():
     print("Expected peptide order:", peptide_order)
 
     data = importPlates(args["path"], plate_order, peptide_order)
-    positive_wells = ["A1", "A2", "A3", "H10", "H11", "H12"]
+    # positive_wells = ["A1", "A2", "A3", "H10", "H11", "H12"]
     print("Got", data.shape[0], "datapoints.")
-    assignControls(data, positive_wells)
+    assignControls(data, args["controls"])
+    print("Control wells assigned: ", args["controls"])
     pp = pivotPlates(data)
     print(pp)
     ratios = computeRatios(pp)
