@@ -165,7 +165,12 @@ def computeRatios(pivoted_data):
     return ratios_data
 
 
-def find_hits(data, stdev_threshold_brightness, stdev_threshold_selectivity):
+def find_hits(
+    data,
+    stdev_threshold_brightness,
+    stdev_threshold_selectivity_0,
+    stdev_threshold_selectivity_1,
+):
     """
     Finds hits and labels data based on the mean and stdev of the positive controls.
     """
@@ -196,12 +201,12 @@ def find_hits(data, stdev_threshold_brightness, stdev_threshold_selectivity):
         # check for pep0 success
         elif (row["value"][pep0] > stdev_threshold_brightness * stdev0 + mean0) and (
             row[ratiostr0].values
-            > stdev_threshold_selectivity * stdev_ratio0 + mean_ratio0
+            > stdev_threshold_selectivity_0 * stdev_ratio0 + mean_ratio0
         ):
             hits.append(pep0)
         elif (row["value"][pep1] > stdev_threshold_brightness * stdev1 + mean1) and (
             row[ratiostr1].values
-            > stdev_threshold_selectivity * stdev_ratio1 + mean_ratio1
+            > stdev_threshold_selectivity_1 * stdev_ratio1 + mean_ratio1
         ):
             hits.append(pep1)
         else:
@@ -251,19 +256,30 @@ def main():
         The order should proceed as plate 1, peptide 1 --> plate 1, peptide 2 --> plate 2, peptdide 1 etc.
         """
     )
+
     parser.add_argument(
         "path", type=str, help="Path to the excel file with sheets for each plate."
     )
     parser.add_argument(
         "number of plates",
         type=int,
-        help="The total number of plates in the excel file.",
+        help="The total number of deepwell plates that were tested.",
     )
     parser.add_argument(
         "peptide1", type=str, help="Name of the first peptide.", default="peptide1"
     )
     parser.add_argument(
+        "selectivity threshold 1",
+        type=int,
+        help="Standard Deviation selectivity threshold for the first peptide.",
+    )
+    parser.add_argument(
         "peptide2", type=str, help="Name of the second peptide.", default="peptide2"
+    )
+    parser.add_argument(
+        "selectivity threshold 2",
+        type=int,
+        help="Standard Deviation selectivity threshold for the second peptide.",
     )
     parser.add_argument(
         "--controls",
@@ -295,7 +311,9 @@ def main():
     pp = pivotPlates(data)
     print(pp)
     ratios = computeRatios(pp)
-    a = find_hits(ratios, -1, 2)
+    a = find_hits(
+        ratios, -1, args["selectivity threshold 1"], args["selectivity threshold 2"]
+    )
     export_to_pick(a, args["peptide1"], args["peptide2"])
 
 
