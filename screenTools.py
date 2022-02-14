@@ -229,7 +229,7 @@ def export_to_pick(data, peptide0, peptide1):
     CSV containing the selected mutants.
     PNGs of each performance plot.
     """
-    stamp = datetime.now().strftime("%Y_%m_%d-%H:%M:%S")
+    stamp = datetime.now().strftime("%Y.%m.%d-%H.%M")
     fname = "./" + str(peptide0) + "_" + str(peptide1) + "_" + stamp
 
     plot_performance(data, peptide0, peptide1)
@@ -270,7 +270,7 @@ def main():
     )
     parser.add_argument(
         "selectivity threshold 1",
-        type=int,
+        type=float,
         help="Standard Deviation selectivity threshold for the first peptide.",
     )
     parser.add_argument(
@@ -278,7 +278,7 @@ def main():
     )
     parser.add_argument(
         "selectivity threshold 2",
-        type=int,
+        type=float,
         help="Standard Deviation selectivity threshold for the second peptide.",
     )
     parser.add_argument(
