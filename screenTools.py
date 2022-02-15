@@ -215,10 +215,35 @@ def find_hits(
     return data.assign(to_pick=hits)
 
 
+def find_hits_by_plate(
+    data,
+    stdev_threshold_brightness,
+    stdev_threshold_selectivity_0,
+    stdev_threshold_selectivity_1,
+):
+    """
+    Finds hits using only the WT wells on the corresponding plate where the hit resides.
+    """
+    hitlist = []
+    for platenum in set(data["plate_number"]):
+        plate = data[data["plate_number"] == platenum]
+        plate_hits = find_hits(
+            plate,
+            stdev_threshold_brightness,
+            stdev_threshold_selectivity_0,
+            stdev_threshold_selectivity_1,
+        )
+        hitlist.append(plate_hits)
+
+    return pd.concat(hitlist)
+
+
 def plot_performance(data, peptide0, peptide1):
 
     fig = plt.figure(figsize=(10, 10))
-    ratiostr = str(peptide0) + "/" + str(peptide1)
+    peptide0 = str(peptide0)
+    peptide1 = str(peptide1)
+    ratiostr = peptide0 + "/" + peptide1
 
     sns.scatterplot(x=("value", peptide0), y=ratiostr, data=data, hue="to_pick")
 
@@ -289,6 +314,12 @@ def main():
         help="List of positive control wells.",
         default=["A1", "A2", "A3", "H10", "H11", "H12"],
     )
+    parser.add_argument(
+        "hits by plate",
+        type=bool,
+        default=True,
+        help="Whether to find hits using all positive wells, or only based on the positives that reside on the same plate.",
+    )
 
     args = vars(parser.parse_args())
 
@@ -311,9 +342,16 @@ def main():
     pp = pivotPlates(data)
     print(pp)
     ratios = computeRatios(pp)
-    a = find_hits(
-        ratios, -1, args["selectivity threshold 1"], args["selectivity threshold 2"]
-    )
+
+    if args["hits by plate"]:
+        a = find_hits_by_plate(
+            ratios, -1, args["selectivity threshold 1"], args["selectivity threshold 2"]
+        )
+    else:
+        a = find_hits(
+            ratios, -1, args["selectivity threshold 1"], args["selectivity threshold 2"]
+        )
+    
     export_to_pick(a, args["peptide1"], args["peptide2"])
 
 
