@@ -248,14 +248,14 @@ def plot_performance(data, peptide0, peptide1):
     sns.scatterplot(x=("value", peptide0), y=ratiostr, data=data, hue="to_pick")
 
 
-def export_to_pick(data, peptide0, peptide1):
+def export_to_pick(data, peptide0, peptide1, fname_prefix=""):
     """
     To the current path:
     CSV containing the selected mutants.
     PNGs of each performance plot.
     """
     stamp = datetime.now().strftime("%Y.%m.%d-%H.%M")
-    fname = "./" + str(peptide0) + "_" + str(peptide1) + "_" + stamp
+    fname = fname_prefix + str(peptide0) + "_" + str(peptide1) + "_" + stamp
 
     plot_performance(data, peptide0, peptide1)
     plt.savefig(fname + "_" + str(peptide0) + ".png")
@@ -315,7 +315,7 @@ def main():
         default=["A1", "A2", "A3", "H10", "H11", "H12"],
     )
     parser.add_argument(
-        "hits by plate",
+        "--byplate",
         type=bool,
         default=True,
         help="Whether to find hits using all positive wells, or only based on the positives that reside on the same plate.",
@@ -343,7 +343,7 @@ def main():
     print(pp)
     ratios = computeRatios(pp)
 
-    if args["hits by plate"]:
+    if args["byplate"]:
         a = find_hits_by_plate(
             ratios, -1, args["selectivity threshold 1"], args["selectivity threshold 2"]
         )
@@ -352,7 +352,7 @@ def main():
             ratios, -1, args["selectivity threshold 1"], args["selectivity threshold 2"]
         )
     
-    export_to_pick(a, args["peptide1"], args["peptide2"])
+    export_to_pick(a, args["peptide1"], args["peptide2"], args["path"])
 
 
 if __name__ == "__main__":
