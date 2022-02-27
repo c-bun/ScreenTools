@@ -248,9 +248,9 @@ def plot_performance(data, peptide0, peptide1):
     sns.scatterplot(x=("value", peptide0), y=ratiostr, data=data, hue="to_pick")
 
 
-def export_to_pick(data, peptide0, peptide1, fname_prefix=""):
+def export_to_pick(data, peptide0, peptide1, fname_prefix="./output/"):
     """
-    To the current path:
+    To a folder named "output" in the current path:
     CSV containing the selected mutants.
     PNGs of each performance plot.
     """
