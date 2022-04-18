@@ -258,10 +258,12 @@ def export_to_pick(data, peptide0, peptide1, fname_prefix="./output/"):
     fname = fname_prefix + str(peptide0) + "_" + str(peptide1) + "_" + stamp
 
     plot_performance(data, peptide0, peptide1)
-    plt.savefig(fname + "_" + str(peptide0) + ".png")
+    #plt.savefig(fname + "_" + str(peptide0) + ".png")
+    plt.savefig(fname + "_" + str(peptide0) + ".pdf")
 
     plot_performance(data, peptide1, peptide0)
-    plt.savefig(fname + "_" + str(peptide1) + ".png")
+    #plt.savefig(fname + "_" + str(peptide1) + ".png")
+    plt.savefig(fname + "_" + str(peptide1) + ".pdf")
 
     trimmed_data = data[(data["to_pick"] == peptide0) | (data["to_pick"] == peptide1)]
     sorted_data = trimmed_data.sort_values(
