@@ -1,3 +1,5 @@
+from ast import Str
+from typing import Tuple
 import numpy as np
 import pandas as pd
 import seaborn as sns
@@ -7,10 +9,29 @@ from datetime import datetime
 
 # for a 96 well plate
 ROWS_96 = ["A", "B", "C", "D", "E", "F", "G", "H"]
-ROW_START = 50
-ROW_END = 58
-COL_START = 2
-COL_END = 14
+ROWS_384 = [
+    "A",
+    "A",
+    "B",
+    "B",
+    "C",
+    "C",
+    "D",
+    "D",
+    "E",
+    "E",
+    "F",
+    "F",
+    "G",
+    "G",
+    "H",
+    "H",
+]
+# list of numbers 1 to 12 repeating twice
+COLUMNS_384 = []
+for c in range(2):
+    for i in range(1, 13):
+        COLUMNS_384.append(str(i))
 
 
 def parsePlate(well_data):
@@ -36,12 +57,90 @@ def parsePlate(well_data):
     return df
 
 
+def expandPlate(plate_df, plate_number, substrate_number):
+    """
+    Reshape the df so that each cells is in a list.
+    """
+    l = []
+    for i, row in plate_df.iterrows():
+        for n, item in enumerate(row):
+            l.append(item)
+    df = pd.DataFrame(l, columns=["value"])
+    df["plate_number"] = plate_number
+    df["peptide"] = substrate_number
+
+    return df
+
+
+def parsePlate384(plate_df, plate_list, peptide_list):
+    """
+    Parses a 384 well plate. The first 12 columns are designated as plate 1 and
+    the last 12 columns are designated as plate 2. Alternating rows are designated
+    as substrate 1 and 2 respectively.
+    """
+    # get the first 12 columns of plate_df
+    plate_1 = plate_df.iloc[:, :12]
+    # get the last 12 columns of plate_df
+    plate_2 = plate_df.iloc[:, 12:]
+    # get the first set of alternating rows of plate_1
+    plate_1_sub1 = plate_1.iloc[::2, :]
+    # get the second set of alternating rows of plate_1
+    plate_1_sub2 = plate_1.iloc[1::2, :]
+    # get the first set of alternating rows of plate_2
+    plate_2_sub1 = plate_2.iloc[::2, :]
+    # get the second set of alternating rows of plate_2
+    plate_2_sub2 = plate_2.iloc[1::2, :]
+
+    # now expand the plates into a list of wells
+    plate_1_sub1 = expandPlate(plate_1_sub1, plate_list[0], peptide_list[0])
+    plate_1_sub2 = expandPlate(plate_1_sub2, plate_list[0], peptide_list[1])
+    plate_2_sub1 = expandPlate(plate_2_sub1, plate_list[1], peptide_list[0])
+    plate_2_sub2 = expandPlate(plate_2_sub2, plate_list[1], peptide_list[1])
+
+    # concatenate the plates into a single dataframe
+    plate_df = pd.concat([plate_1_sub1, plate_1_sub2, plate_2_sub1, plate_2_sub2])
+
+    if plate_list != [0, 0]:
+        # generate a list of 384 well locations
+        locations = parsePlate384(generate384list(), [0, 0], [0, 0])["value"].values
+        rows = [location[:1] for location in locations]
+        columns = [location[1:] for location in locations]
+
+        # add the rows and columns to the dataframe
+        plate_df["row"] = rows
+        plate_df["column"] = columns
+
+    return plate_df
+
+
+def generate384list():
+    """
+    Generates a list of 384 well locations in a dataframe. Columns are numbered and rows are letters.
+    """
+    rows = ROWS_384
+    columns = COLUMNS_384
+    columns = [str(i) for i in columns]
+    wells = []
+    for i, row in enumerate(rows):
+        for n, item in enumerate(columns):
+            wells.append(row + item)
+    l = np.array(wells)
+
+    # now reshape the array to have 24 columns and 16 rows
+    l = l.reshape(16, 24)
+
+    # return it as a dataframe
+    df = pd.DataFrame(l, columns=columns, index=rows)
+
+    return df
+
+
 def importPlate(
-    xls_path,
-    upper_left_location=(1, 1),
-    lower_right_location=(8, 12),
-    plate_number=None,
-    peptide=None,
+    xls_path: Str,
+    upper_left_location: tuple = (1, 1),
+    lower_right_location: tuple = (8, 12),
+    plate_number: list = None,
+    peptide: list = None,
 ):
     """
     Import an excel file and get plate data from location.
@@ -60,31 +159,48 @@ def importPlate(
 
 
 def importPlates(
-    xls_path,
-    plate_list,
-    peptide_list,
-    upper_left_location=(42, 2),
-    lower_right_location=(49, 13),
+    xls_path: Str,
+    plate_list: list,
+    peptide_list: list,
+    plate_format: int = 384,
 ):
     """
-    Import an excel file with individual plates as sheets.
+    If 384, import plate from single excel sheet, if 96, import an excel file with individual plates as sheets.
     """
-    plates = []
 
-    for i, plate_name in enumerate(plate_list):
-        df = pd.read_excel(xls_path, sheet_name=i)
-        platedf = df.iloc[
+    if plate_format == 384:
+        upper_left_location = (50, 2)
+        lower_right_location = (65, 25)
+
+        df = pd.read_excel(xls_path)
+        plate_df = df.iloc[
             upper_left_location[0] - 1 : lower_right_location[0],
             upper_left_location[1] : lower_right_location[1] + 1,
         ]
 
-        plate = parsePlate(platedf)
-        plate["plate_number"] = plate_name
-        plate["peptide"] = peptide_list[i]
+        plates = parsePlate384(plate_df, plate_list, peptide_list)
 
-        plates.append(plate)
+        return plates
 
-    return pd.concat(plates)
+    elif plate_format == 96:
+        upper_left_location = ((42, 2),)
+        lower_right_location = ((49, 13),)
+        plates = []
+
+        for i, plate_name in enumerate(plate_list):
+            df = pd.read_excel(xls_path, sheet_name=i)
+            plate_df = df.iloc[
+                upper_left_location[0] - 1 : lower_right_location[0],
+                upper_left_location[1] : lower_right_location[1] + 1,
+            ]
+
+            plate = parsePlate(plate_df)
+            plate["plate_number"] = plate_name
+            plate["peptide"] = peptide_list[i]
+
+            plates.append(plate)
+
+        return pd.concat(plates)
 
 
 # def importPlate(xls_path, location=(ROW_START,ROW_END,COL_START,COL_END)):
@@ -248,7 +364,9 @@ def plot_performance(data, peptide0, peptide1):
     sns.scatterplot(x=("value", peptide0), y=ratiostr, data=data, hue="to_pick")
 
 
-def export_to_pick(data, peptide0, peptide1, fname_prefix="./output/"):
+def export_to_pick(
+    data: pd.DataFrame, peptide0: Str, peptide1: Str, fname_prefix: Str = "./output/"
+) -> pd.DataFrame:
     """
     To a folder named "output" in the current path:
     CSV containing the selected mutants.
@@ -258,11 +376,11 @@ def export_to_pick(data, peptide0, peptide1, fname_prefix="./output/"):
     fname = fname_prefix + str(peptide0) + "_" + str(peptide1) + "_" + stamp
 
     plot_performance(data, peptide0, peptide1)
-    #plt.savefig(fname + "_" + str(peptide0) + ".png")
+    # plt.savefig(fname + "_" + str(peptide0) + ".png")
     plt.savefig(fname + "_" + str(peptide0) + ".pdf")
 
     plot_performance(data, peptide1, peptide0)
-    #plt.savefig(fname + "_" + str(peptide1) + ".png")
+    # plt.savefig(fname + "_" + str(peptide1) + ".png")
     plt.savefig(fname + "_" + str(peptide1) + ".pdf")
 
     trimmed_data = data[(data["to_pick"] == peptide0) | (data["to_pick"] == peptide1)]
@@ -353,7 +471,7 @@ def main():
         a = find_hits(
             ratios, -1, args["selectivity threshold 1"], args["selectivity threshold 2"]
         )
-    
+
     export_to_pick(a, args["peptide1"], args["peptide2"], args["path"])
 
 
