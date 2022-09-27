@@ -183,8 +183,8 @@ def importPlates(
         return plates
 
     elif plate_format == 96:
-        upper_left_location = ((42, 2),)
-        lower_right_location = ((49, 13),)
+        upper_left_location = (42, 2)
+        lower_right_location = (49, 13)
         plates = []
 
         for i, plate_name in enumerate(plate_list):
