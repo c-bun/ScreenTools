@@ -336,6 +336,8 @@ def find_hits_by_plate(
     stdev_threshold_brightness,
     stdev_threshold_selectivity_0,
     stdev_threshold_selectivity_1,
+    pep0=None,
+    pep1=None,
 ):
     """
     Finds hits using only the WT wells on the corresponding plate where the hit resides.
@@ -348,6 +350,8 @@ def find_hits_by_plate(
             stdev_threshold_brightness,
             stdev_threshold_selectivity_0,
             stdev_threshold_selectivity_1,
+            pep0=pep0,
+            pep1=pep1,
         )
         hitlist.append(plate_hits)
 
