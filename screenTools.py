@@ -167,7 +167,7 @@ def importPlates(
     """
     If 384, import plate from single excel sheet, if 96, import an excel file with individual plates as sheets.
     """
-
+    print("importing: ", xls_path)
     if plate_format == 384:
         upper_left_location = (50, 2)
         lower_right_location = (65, 25)
@@ -350,8 +350,8 @@ def find_hits_by_plate(
             stdev_threshold_brightness,
             stdev_threshold_selectivity_0,
             stdev_threshold_selectivity_1,
-            pep0=pep0,
-            pep1=pep1,
+            # pep0=pep0,
+            # pep1=pep1,
         )
         hitlist.append(plate_hits)
 
