@@ -72,47 +72,6 @@ def expandPlate(plate_df, plate_number, substrate_number):
     return df
 
 
-def parsePlate384(plate_df, plate_list, peptide_list):
-    """
-    Parses a 384 well plate. The first 12 columns are designated as plate 1 and
-    the last 12 columns are designated as plate 2. Alternating rows are designated
-    as substrate 1 and 2 respectively.
-    """
-    # get the first 12 columns of plate_df
-    plate_1 = plate_df.iloc[:, :12]
-    # get the last 12 columns of plate_df
-    plate_2 = plate_df.iloc[:, 12:]
-    # get the first set of alternating rows of plate_1
-    plate_1_sub1 = plate_1.iloc[::2, :]
-    # get the second set of alternating rows of plate_1
-    plate_1_sub2 = plate_1.iloc[1::2, :]
-    # get the first set of alternating rows of plate_2
-    plate_2_sub1 = plate_2.iloc[::2, :]
-    # get the second set of alternating rows of plate_2
-    plate_2_sub2 = plate_2.iloc[1::2, :]
-
-    # now expand the plates into a list of wells
-    plate_1_sub1 = expandPlate(plate_1_sub1, plate_list[0], peptide_list[0])
-    plate_1_sub2 = expandPlate(plate_1_sub2, plate_list[0], peptide_list[1])
-    plate_2_sub1 = expandPlate(plate_2_sub1, plate_list[1], peptide_list[0])
-    plate_2_sub2 = expandPlate(plate_2_sub2, plate_list[1], peptide_list[1])
-
-    # concatenate the plates into a single dataframe
-    plate_df = pd.concat([plate_1_sub1, plate_1_sub2, plate_2_sub1, plate_2_sub2])
-
-    if plate_list != [0, 0]:
-        # generate a list of 384 well locations
-        locations = parsePlate384(generate384list(), [0, 0], [0, 0])["value"].values
-        rows = [location[:1] for location in locations]
-        columns = [location[1:] for location in locations]
-
-        # add the rows and columns to the dataframe
-        plate_df["row"] = rows
-        plate_df["column"] = columns
-
-    return plate_df
-
-
 def generate384list():
     """
     Generates a list of 384 well locations in a dataframe. Columns are numbered and rows are letters.
@@ -135,82 +94,130 @@ def generate384list():
     return df
 
 
-def importPlate(
-    xls_path: Str,
-    upper_left_location: tuple = (1, 1),
-    lower_right_location: tuple = (8, 12),
-    plate_number: list = None,
-    peptide: list = None,
-):
-    """
-    Import an excel file and get plate data from location.
-    """
-    df = pd.read_excel(xls_path)
-    platedf = df.iloc[
-        upper_left_location[0] - 1 : lower_right_location[0],
-        upper_left_location[1] : lower_right_location[1] + 1,
-    ]
-
-    plate = parsePlate(platedf)
-    plate["plate_number"] = plate_number
-    plate["peptide"] = peptide
-
-    return plate
-
-
 def importPlates(
     xls_path: Str,
     plate_list: list,
     peptide_list: list,
-    plate_format: int = 384,
+    positive_controls: list = [
+        ["A1", "B1", "C1"],
+        ["A1", "B1", "C1"],
+    ],  # these are the positive controls for each plate
+    negative_controls: list = [
+        ["D1", "E1", "F1"],
+        ["D1", "E1", "F1"],
+    ],  # these are the negative controls for each plate
 ):
     """
-    If 384, import plate from single excel sheet, if 96, import an excel file with individual plates as sheets.
+    Imports a 384 well plate from an excel file. The first 12 columns are designated as plate 1 and
+    the last 12 columns are designated as plate 2. Alternating rows are designated
+    as substrate 1 and 2 respectively. The plate is then parsed into a list of 384 well plates.
+    Parameters
+    ----------
+    xls_path : Str
+        Path to the excel file containing the plate data.
+    plate_list : list
+        List of plate numbers. The first plate number corresponds to the first 96 wells of the plate.
+    peptide_list : list
+        List of peptides. The first peptide corresponds to the first 96 wells of the plate.
+    positive_controls : list, optional
+        List of positive control wells. The first list corresponds to the first plate and the second list corresponds to the second plate. The default is [["A1", "B1", "C1"], ["A1", "B1", "C1"]].
+    negative_controls : list, optional
+        List of negative control wells. The first list corresponds to the first plate and the second list corresponds to the second plate. The default is [["D1", "E1", "F1"], ["D1", "E1", "F1"]].
+    Returns
+    -------
+    plates : list
+        List of 384 well plates.
     """
     print("importing: ", xls_path)
-    if plate_format == 384:
-        upper_left_location = (50, 2)
-        lower_right_location = (65, 25)
+    # upper_left_location = (50, 2) # these should be right if the plate reader saved correctly
+    upper_left_location = (
+        52,
+        2,
+    )  # these should be right if the plate reader saved correctly
+    lower_right_location = (67, 25)
 
-        df = pd.read_excel(xls_path)
-        plate_df = df.iloc[
-            upper_left_location[0] - 1 : lower_right_location[0],
-            upper_left_location[1] : lower_right_location[1] + 1,
-        ]
+    df = pd.read_excel(xls_path)
+    plate_df = df.iloc[
+        upper_left_location[0] - 1 : lower_right_location[0],
+        upper_left_location[1] : lower_right_location[1] + 1,
+    ]  # this is the dataframe of the plate with the shape (16, 24)
 
-        plates = parsePlate384(plate_df, plate_list, peptide_list)
+    plates = parsePlate384(
+        plate_df,
+        plate_list,
+        peptide_list,
+        positive_controls=positive_controls,
+        negative_controls=negative_controls,
+    )
 
-        return plates
-
-    elif plate_format == 96:
-        upper_left_location = (42, 2)
-        lower_right_location = (49, 13)
-        plates = []
-
-        for i, plate_name in enumerate(plate_list):
-            df = pd.read_excel(xls_path, sheet_name=i)
-            plate_df = df.iloc[
-                upper_left_location[0] - 1 : lower_right_location[0],
-                upper_left_location[1] : lower_right_location[1] + 1,
-            ]
-
-            plate = parsePlate(plate_df)
-            plate["plate_number"] = plate_name
-            plate["peptide"] = peptide_list[i]
-
-            plates.append(plate)
-
-        return pd.concat(plates)
+    return plates
 
 
-# def importPlate(xls_path, location=(ROW_START,ROW_END,COL_START,COL_END)):
-#     """
-#     Import an excel file and get plate data from location.
-#     """
-#     df = pd.read_excel(xls_path)
-#     platedf = df.iloc[location[0]:location[1],location[2]:location[3]]
+def parsePlate384(
+    plate_df: pd.DataFrame,
+    plate_list: list,
+    peptide_list: list,
+    positive_controls: list = [["A1", "B1", "C1"], ["A1", "B1", "C1"]],
+    negative_controls: list = [["D1", "E1", "F1"], ["D1", "E1", "F1"]],
+):
+    """
+    Parses a 384 well plate. The first 12 columns are designated as plate 1 and
+    the last 12 columns are designated as plate 2. Alternating rows are designated
+    as substrate 1 and 2 respectively.
+    """
+    # get the first 12 columns of plate_df. These contain plate 1.
+    plate_1 = plate_df.iloc[:, :12]
+    # get the last 12 columns of plate_df. These contain plate 2.
+    plate_2 = plate_df.iloc[:, 12:]
+    # get the first set of alternating rows of plate_1. These contain substrate 1.
+    plate_1_sub1 = plate_1.iloc[::2, :]
+    # get the second set of alternating rows of plate_1. These contain substrate 2.
+    plate_1_sub2 = plate_1.iloc[1::2, :]
+    # get the first set of alternating rows of plate_2. These contain substrate 1.
+    plate_2_sub1 = plate_2.iloc[::2, :]
+    # get the second set of alternating rows of plate_2. These contain substrate 2.
+    plate_2_sub2 = plate_2.iloc[1::2, :]
 
-#     return parsePlate(platedf)
+    # parse each plate as a 96 well plate
+    plate_1_sub1 = parsePlate(plate_1_sub1)
+    plate_1_sub2 = parsePlate(plate_1_sub2)
+    plate_2_sub1 = parsePlate(plate_2_sub1)
+    plate_2_sub2 = parsePlate(plate_2_sub2)
+
+    # assign control wells to each plate
+    plate_1_sub1 = assignControls(
+        plate_1_sub1, positive=positive_controls[0], negative=negative_controls[0]
+    )
+    plate_1_sub2 = assignControls(
+        plate_1_sub2, positive=positive_controls[0], negative=negative_controls[0]
+    )
+    plate_2_sub1 = assignControls(
+        plate_2_sub1, positive=positive_controls[1], negative=negative_controls[1]
+    )
+    plate_2_sub2 = assignControls(
+        plate_2_sub2, positive=positive_controls[1], negative=negative_controls[1]
+    )
+
+    # add the plate number and peptide to each plate
+    plate_1_sub1["plate_number"] = plate_list[0]
+    plate_1_sub1["peptide"] = peptide_list[0]
+    plate_1_sub2["plate_number"] = plate_list[0]
+    plate_1_sub2["peptide"] = peptide_list[1]
+    plate_2_sub1["plate_number"] = plate_list[1]
+    plate_2_sub1["peptide"] = peptide_list[0]
+    plate_2_sub2["plate_number"] = plate_list[1]
+    plate_2_sub2["peptide"] = peptide_list[1]
+
+    # # now expand the plates into a list of wells
+    # plate_1_sub1 = expandPlate(plate_1_sub1, plate_list[0], peptide_list[0])
+    # plate_1_sub2 = expandPlate(plate_1_sub2, plate_list[0], peptide_list[1])
+    # plate_2_sub1 = expandPlate(plate_2_sub1, plate_list[1], peptide_list[0])
+    # plate_2_sub2 = expandPlate(plate_2_sub2, plate_list[1], peptide_list[1])
+
+    # concatenate the plates into a single dataframe
+    plate_df = pd.concat([plate_1_sub1, plate_1_sub2, plate_2_sub1, plate_2_sub2])
+
+    return plate_df
 
 
 def assignControls(plate_df, positive=None, negative=None):
@@ -357,6 +364,42 @@ def find_hits_by_plate(
 
     return pd.concat(hitlist)
 
+def top_n_hits(plate_df, pep0n, pep1n, n=10, stdev_threshold=1):
+    """
+    Returns the top n hits for each plate in a dataframe.
+    """
+    # make the ratio strings
+    ratiostr0 = str(pep0n) + "/" + str(pep1n)
+    ratiostr1 = str(pep1n) + "/" + str(pep0n)
+
+    # calculate the thresholds for each peptide by calculating the mean and adding a multiple of the standard deviation
+    pep0_threshold = plate_df['value'][pep0n].mean() + stdev_threshold * plate_df['value'][pep0n].std()
+    pep1_threshold = plate_df['value'][pep1n].mean() + stdev_threshold * plate_df['value'][pep1n].std()
+    print("Thresholding plate", plate_df['plate_number'].unique()[0], "at", pep0_threshold, "for", pep0n,"and", pep1_threshold, "for", pep1n)
+
+    # drop control wells
+    plate_df = plate_df[plate_df['condition'] == 'experimental']
+
+    # sort by selectivity for pep0
+    pep0 = plate_df.sort_values(ratiostr0, ascending=False)
+    # drop any values below the threshold and take the top n
+    pep0 = pep0[pep0['value'][pep0n] > pep0_threshold].head(n)
+    pep0['to_pick'] = pep0n
+    
+    # sort by selectivity for pep1
+    pep1 = plate_df.sort_values(ratiostr1, ascending=False)
+    # drop any values below the threshold and take the top n
+    pep1 = pep1[pep1['value'][pep1n] > pep1_threshold].head(n)
+    pep1['to_pick'] = pep1n
+
+    # concatenate the two dataframes
+    hits = pd.concat([pep0, pep1])
+
+    # print plate number and number of hits if less than n*2
+    if len(hits) < n*2:
+        print("Only found", len(hits), "hits on plate", plate_df['plate_number'].unique()[0])
+
+    return hits
 
 def plot_performance(data, peptide0, peptide1):
 
@@ -396,6 +439,27 @@ def export_to_pick(
 
     return sorted_data
 
+# prep and output hits as a csv output 160 at a time
+def to_pick_csv(hits, file_prefix='to_pick'):
+    # cast the plate_number column as an int
+    hits['plate_number'] = hits['plate_number'].astype(int)
+    # sort by plate_number
+    hits = hits.sort_values('plate_number')
+    # for each plate_number in the hits dataframe, add a new column with the deck position, starting at 1 and repeating after 8
+    d = {hits['plate_number'].unique()[i]: i%8+1 for i in range(len(hits['plate_number'].unique()))}
+    hits['deck_position'] = hits['plate_number'].map(d)
+
+    # rename the plate_number column to plate_label
+    hits = hits.rename(columns={'plate_number': 'plate_label'})
+    # keep only the columns we want: to_pick, deck_position, row, column, and plate_label in that order
+    hits = hits[['to_pick', 'deck_position', 'row', 'column', 'plate_label']]
+
+    # output the hits as a csv file, splitting into a new file every eight unique plate_labels
+    labels = hits['plate_label'].unique()
+    for i in range(0, len(labels), 8):
+        hits[hits['plate_label'].isin(labels[i:i+8])].to_csv(file_prefix + "_" + str(i) + ".csv", index=True)
+
+    return hits
 
 def main():
 
